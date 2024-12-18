@@ -17,11 +17,12 @@ import { assign } from "protolib/bundles/stateMachines/handlers";
 
 export default Protofy("machineDefinition", {
   context: {
-    "counter": "0"
+    counter: 0
 }, 
   initial: "idle", 
   states: {
     idle: {
+      on: {'qr_detected': 'reading'},
       entry: async (params) => {
         await generateEvent(
           {
@@ -39,6 +40,9 @@ export default Protofy("machineDefinition", {
       }
     }, 
     reading: {
+      on: {'qr_is_correct': 'double_check',
+        'qr_is_not_correct': 'error',
+      },
       entry: async (params) => {
         await generateEvent(
           {
@@ -56,6 +60,7 @@ export default Protofy("machineDefinition", {
       }
     }, 
     success: {
+      on: {'counted': 'idle'},
       entry: async (params) => {
         await generateEvent(
           {
@@ -71,8 +76,29 @@ export default Protofy("machineDefinition", {
           getServiceToken()
         );
       }
+    },
+    double_check: {
+      on: {'double_check_true': 'success',
+        'double_check_false': 'error',
+      },
+      entry: async (params) => {
+        await generateEvent(
+          {
+              path: "stateMachines/state/entry",
+              from: "state-machine",
+              user: params.instanceName,
+              payload: {
+                machine: params.instanceName, 
+                definition: "goZeroWaste", 
+                currentState: "double_check"
+              }
+          },
+          getServiceToken()
+        );
+      }
     }, 
     error: {
+      on: {'not_counted': 'idle'},
       entry: async (params) => {
         await generateEvent(
           {
